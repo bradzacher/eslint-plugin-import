@@ -1,5 +1,5 @@
 /**
- * @fileOverview Ensures that modules contain exports and/or all 
+ * @fileOverview Ensures that modules contain exports and/or all
  * modules are consumed within other modules.
  * @author René Fermann
  */
@@ -19,9 +19,9 @@ try {
 const EXPORT_DEFAULT_DECLARATION = 'ExportDefaultDeclaration'
 const EXPORT_NAMED_DECLARATION = 'ExportNamedDeclaration'
 const EXPORT_ALL_DECLARATION = 'ExportAllDeclaration'
-const IMPORT_DECLARATION = 'ImportDeclaration' 
+const IMPORT_DECLARATION = 'ImportDeclaration'
 const IMPORT_NAMESPACE_SPECIFIER = 'ImportNamespaceSpecifier'
-const IMPORT_DEFAULT_SPECIFIER = 'ImportDefaultSpecifier' 
+const IMPORT_DEFAULT_SPECIFIER = 'ImportDefaultSpecifier'
 const VARIABLE_DECLARATION = 'VariableDeclaration'
 const FUNCTION_DECLARATION = 'FunctionDeclaration'
 const DEFAULT = 'default'
@@ -37,7 +37,7 @@ const isNodeModule = path => {
 
 /**
  * read all files matching the patterns in src and ignoreExports
- * 
+ *
  * return all files matching src pattern, which are not matching the ignoreExports pattern
  */
 const resolveFiles = (src, ignoreExports) => {
@@ -67,13 +67,13 @@ const prepareImportsAndExports = (srcFiles, context) => {
     if (currentExports) {
       const { dependencies, reexports, imports: localImportList, namespace  } = currentExports
 
-      // dependencies === export * from 
+      // dependencies === export * from
       const currentExportAll = new Set()
       dependencies.forEach(value => {
         currentExportAll.add(value().path)
       })
       exportAll.set(file, currentExportAll)
-      
+
       reexports.forEach((value, key) => {
         if (key === DEFAULT) {
           exports.set(IMPORT_DEFAULT_SPECIFIER, { whereUsed: new Set() })
@@ -106,7 +106,7 @@ const prepareImportsAndExports = (srcFiles, context) => {
         imports.set(key, value.importedSpecifiers)
       })
       importList.set(file, imports)
-      
+
       // build up export list only, if file is not ignored
       if (ignoredFiles.has(file)) {
         return
@@ -133,7 +133,7 @@ const prepareImportsAndExports = (srcFiles, context) => {
 }
 
 /**
- * traverse through all imports and add the respective path to the whereUsed-list 
+ * traverse through all imports and add the respective path to the whereUsed-list
  * of the corresponding export
  */
 const determineUsage = () => {
@@ -192,66 +192,105 @@ module.exports = {
   meta: {
     docs: { url: docsUrl('no-unused-modules') },
     schema: [{
-      properties: {
-        src: {
-          description: 'files/paths to be analyzed (only for unused exports)',
-          type: 'array',
-          minItems: 1,
-          items: {
-            type: 'string',
-            minLength: 1,
+      definitions: {
+        schema: {
+          type: 'object',
+          properties: {
+            src: {
+              description: 'files/paths to be analyzed (only for unused exports)',
+              type: 'array',
+              minItems: 1,
+              items: {
+                type: 'string',
+                minLength: 1,
+              },
+            },
+            ignoreExports: {
+              description:
+                // eslint-disable-next-line max-len
+                'files/paths for which unused exports will not be reported (e.g module entry points)',
+              type: 'array',
+              minItems: 1,
+              items: {
+                type: 'string',
+                minLength: 1,
+              },
+            },
+            missingExports: {
+              description: 'report modules without any exports',
+              type: 'boolean',
+            },
+            unusedExports: {
+              description: 'report exports without any usage',
+              type: 'boolean',
+            },
           },
-        },
-        ignoreExports: {
-          description:
-            'files/paths for which unused exports will not be reported (e.g module entry points)',
-          type: 'array',
-          minItems: 1,
-          items: {
-            type: 'string',
-            minLength: 1,
-          },
-        },
-        missingExports: {
-          description: 'report modules without any exports',
-          type: 'boolean',
-        },
-        unusedExports: {
-          description: 'report exports without any usage',
-          type: 'boolean',
+          additionalProperties: false,
         },
       },
+      // prevent providing false for both flags
+      // if they're both false, the rule does nothing
       not: {
         properties: {
-          unusedExports: { enum: [false] },
-          missingExports: { enum: [false] },
+          unusedExports: {
+            enum: [
+              false,
+            ],
+          },
+          missingExports: {
+            enum: [
+              false,
+            ],
+          },
         },
       },
-      anyOf:[{
-        not: {
-          properties: {
-            unusedExports: { enum: [true] },
+      anyOf: [
+        // if unusedExports is false, must provide missingExports
+        {
+          $ref: '#/definitions/schema',
+          not: {
+            properties: {
+              unusedExports: {
+                enum: [
+                  true,
+                ],
+              },
+            },
           },
+          required: [
+            'missingExports',
+          ],
         },
-        required: ['missingExports'],
-      }, {
-        not: {
-          properties: {
-            missingExports: { enum: [true] },
+        // if missingExports is false, must provide missingExports
+        {
+          $ref: '#/definitions/schema',
+          not: {
+            properties: {
+              missingExports: {
+                enum: [
+                  true,
+                ],
+              },
+            },
           },
+          required: [
+            'unusedExports',
+          ],
         },
-        required: ['unusedExports'],
-      }, {
-        properties: {
-          unusedExports: { enum: [true] },
+        // require either unusedExports or missingExports is provided
+        {
+          $ref: '#/definitions/schema',
+          required: [
+            'unusedExports',
+          ],
         },
-        required: ['unusedExports'],
-      }, {
-        properties: {
-          missingExports: { enum: [true] },
+        {
+          $ref: '#/definitions/schema',
+          required: [
+            'missingExports',
+          ],
         },
-        required: ['missingExports'],
-      }],
+      ],
     }],
   },
 
@@ -266,7 +305,7 @@ module.exports = {
     if (unusedExports && !preparationDone) {
       doPreparation(src, ignoreExports, context)
     }
-    
+
     const file = context.getFilename()
 
     const checkExportPresence = node => {
@@ -300,7 +339,7 @@ module.exports = {
 
       exports = exportList.get(file)
 
-      // special case: export * from 
+      // special case: export * from
       const exportAll = exports.get(EXPORT_ALL_DECLARATION)
       if (typeof exportAll !== 'undefined' && exportedValue !== IMPORT_DEFAULT_SPECIFIER) {
         if (exportAll.whereUsed.size > 0) {
@@ -317,9 +356,9 @@ module.exports = {
       }
 
       const exportStatement = exports.get(exportedValue)
-      
+
       const value = exportedValue === IMPORT_DEFAULT_SPECIFIER ? DEFAULT : exportedValue
-      
+
       if (typeof exportStatement !== 'undefined'){
         if (exportStatement.whereUsed.size < 1) {
           context.report(
@@ -337,7 +376,7 @@ module.exports = {
 
     /**
      * only useful for tools like vscode-eslint
-     * 
+     *
      * update lists of existing exports during runtime
      */
     const updateExportUsage = node => {
@@ -359,7 +398,7 @@ module.exports = {
       node.body.forEach(({ type, declaration, specifiers }) => {
         if (type === EXPORT_DEFAULT_DECLARATION) {
           newExportIdentifiers.add(IMPORT_DEFAULT_SPECIFIER)
-        } 
+        }
         if (type === EXPORT_NAMED_DECLARATION) {
           if (specifiers.length > 0) {
             specifiers.forEach(specifier => {
@@ -371,7 +410,7 @@ module.exports = {
           if (declaration) {
             if (declaration.type === FUNCTION_DECLARATION) {
               newExportIdentifiers.add(declaration.id.name)
-            }   
+            }
             if (declaration.type === VARIABLE_DECLARATION) {
               declaration.declarations.forEach(({ id }) => {
                 newExportIdentifiers.add(id.name)
@@ -398,7 +437,7 @@ module.exports = {
       // preserve information about namespace imports
       let exportAll = exports.get(EXPORT_ALL_DECLARATION)
       let namespaceImports = exports.get(IMPORT_NAMESPACE_SPECIFIER)
-      
+
       if (typeof namespaceImports === 'undefined') {
         namespaceImports = { whereUsed: new Set() }
       }
@@ -410,7 +449,7 @@ module.exports = {
 
     /**
      * only useful for tools like vscode-eslint
-     * 
+     *
      * update lists of existing imports during runtime
      */
     const updateImportUsage = node => {
@@ -422,13 +461,13 @@ module.exports = {
       if (typeof oldImportPaths === 'undefined') {
         oldImportPaths = new Map()
       }
-      
+
       const oldNamespaceImports = new Set()
       const newNamespaceImports = new Set()
 
       const oldExportAll = new Set()
       const newExportAll = new Set()
-      
+
       const oldDefaultImports = new Set()
       const newDefaultImports = new Set()
 
@@ -477,11 +516,11 @@ module.exports = {
         }
 
         if (astNode.type === IMPORT_DECLARATION) {
-          resolvedPath = resolve(astNode.source.value, context)       
+          resolvedPath = resolve(astNode.source.value, context)
           if (!resolvedPath) {
             return
           }
-          
+
           if (isNodeModule(resolvedPath)) {
             return
           }
